@@ -1,0 +1,157 @@
+FORMAT: 1A
+HOST: http://teste.com.br
+
+# API SCIM TOTVS
+
+# Introdução
+
+O SCIM 'users' é um protocolo de aplicação REST para provisionamento e gerenciamento de dados de identidade na web. O protocolo suporta a criação, modificação, recuperação e descoberta de usuários.
+
+O serviço users do Protheus permite a inclusão e manipulação de dados de usuário no sistema. É altamente aconselhável que a autenticação de serviços esteja habilitada no servidor rest para evitar manipulação indevida dos dados. Todos os usuários que se autenticarem para utilizar este serviço devem possuir acesso a rotina CFGA510 (o cadastro de usuários no Protheus)
+
+Detalhes da configuração do REST Protheus e como ligar a autenticação dos serviços acesse a página do REST Protheus <a href="http://tdn.totvs.com/pages/viewpage.action?pageId=75268866)" target="_blank">aqui</a>.
+
+> **Atenção**  
+> Via REST apenas é possível a criação básica do usuário. Para configurar permissões, acessos, menus, etc, é necessária a utilização do Identity.
+
+# Group USERS 
+
+## Obter dados do usuário [/users/{userId}/{?showAdmin,count,startIndex,attributes}]
+
+Para recuperar um usuário conhecido, os clientes enviam requisições GET. Se o usuário existir o servidor responde com o código de estado 200 e inclui o resultado no corpo da resposta. Também é possível listar os usuários do sistema, omitindo o envio do _pathParam {userId}_.
+
+A busca por um usuário passando o Id difere apenas da omissão no resultado dos parâmetros totalResult, itensPerPage e startIndex.
+
++ Parameters
+
+   + userId (string) - id ou código do usuário no sistema.
+   + showAdmin (boolean, optional) - Indica se o get deve retornar o usuário admin. - Default: false
+   + count (numérico, optional) - Indica quantos usuários deverão ser retornados pelo método. - Default: Todos
+   + startIndex (numérico, optional) - Indica a partir de qual usuário encontrado deverá ocorrer o retorno. - Default: 1
+   + attributes (string, optional) - Indica quais atributos do jSon devem ser retornados. Os atributos devem ser separados por ','. - Default: Retorna todos os atributos
+       + O parâmetro **attributes** é case sensitive.
+
+### Obtem dados do usuário pelo ID [GET]
+
++ Response 200 (application/json)
+
+    + Attributes (object)
+        + totalResults: 1 (number) - Indica a quantidade de registros encontrados.
+        + itemsPerPage: 10 (number) - Quantidade de itens retornados na requisição.
+        + startIndex: 1 (number) - Registro “a partir de” do retorno dos registros.
+        + Id: 00021 (string) - Id ou código do usuário no Protheus.
+        + meta (Meta) - JSON Relacionado a criação do usuário.           
+        + externalId: teste@empresa.com.br (string) - Código externo do usuário (e-mail para a maioria dos sistemas).
+        + name (Name) - Código do usuário no sistema.
+        + displayName:  Use1r (string) - nome do usuário no sistema.           
+        + emails (array[EmailGet]) - array de objetos               
+        + active: true (boolean) - Retorna se o usuário está ativo ou não no sistema.
+        + groups (array[Group]) - Grupos ao qual o usuário pertence.
+        + title: Coordenador (string) - Cargo do usuário.
+        + employeeNumber: 02|00|000001 (string) - Código de funcionário.
+        + department: RH (string) - Código do departamento do usuário.
+        + manager (array[Manager]) - Informações dos superiores do usuário.                
+
+## Criar Usuário [/users/{userid}/{operation}]
+
+### Cria Usuário [POST]
+
+Cria novos usuários no sistema devolvendo na requisição, quando bem sucedida, o código de resposta 201 (created).
+
++ Parameters
+
+   + userid (string, optional) - id ou código do usuário no sistema.
+   + operation (string, optional) - Valores aceitos: activate e deactivate. Indica se o usuário será ativado no sistema (activate) ou se o usuário será bloqueado via SAML (deactivate) ou se um novo usuário será criado (parâmetro vazio ou qualquer outro valor diferente dos anteriores. Caso o parâmetro userId seja enviado mas não seja enviado o parâmetro operation é assumido que um novo usuário será criado no sistema.
+
++ Request (application/json)
+
+    + Attributes (object)
+        + userName: Usr Tst (string) - Nome do usuário.
+           + Default: valor do atributo ext/adDomain
+        + displayName: User (string) - nome completo do usuário.
+        + externalId: TesteUsr (string) - Código externo do usuário. 
+           + Default: Código externo do usuário. Quando enviado indica que o usuário bloqueado via SAML será reativado. O Envio de um externalId que não exista irá gerar a inclusão de um novo usuário.
+        + title: Coordenador (string) - Cargo do usuário.
+        + emails (array[EmailPost], required) - O primeiro e-mail com o valor primary apontado como true é o email cadastrado para o usuário (é necessário no mínimo um email primário. Qualquer email não primário enviado é descartado). Caso o e-mail enviado já exista em outro usuário o e-mail ficará em branco.           
+        + active: true (boolean) - Indica se o usuário estará ativo ou bloqueado. 
+           + Default: valor do atributo ext/adDomain
+        + groups (array[GroupPost]) - Grupos ao qual o usuário está associado.                
+        + password: pass001 (string) - senha do usuário. Quando não informado a senha deverá ser alterada posteriormente pelo admin.  
+           + Default:hash randômico
+        + `ext/SAMAccountName`: user0007 (string) - Indica o login do usuário no SSO (caso informado, ele substituirá o valor informado no campo userName).
+        + `ext/adDomain`: XP01 (string) - domínio do usuário do SSO.
+        + `urn:scim:schemas:extension:enterprise:2.0:User` (UserSup) - Indica as configurações de usuário superior.
+        + `urn:scim:schemas:extension:enterprise:2.0:User/forceChangePassword`: true (boolean) - Identifica se deve ou não realizar a troca de senha no primeiro acesso.  
+                   + Default:false
+        + `urn:scim:schemas:extension:enterprise:2.0:User/employeeNumber`: 02|00|000001 (string) - Vínculo fincional do usuário. Devem ser enviados os valores de Grupo de Empresas, Filial e Código do vínculo separados por "|". Exemplo para o grupo 18, filial D MG 01 e código 002: 18|D MG 01|002.
+        + `urn:scim:schemas:extension:enterprise:2.0:User/department`: RH (string) - código do departamento do usuário.
+        + `urn:scim:schemas:extension:enterprise:2.0:User/groupRule`: 2 (number) - Define a regra de priorização por grupo: 1 priorizar, 2 desconsiderar e 3 somar. Qualquer valor diferente deste, quando enviado, assume o valor 1.
+
+                
+        
+
++ Response 201 (application/json)
+
+## Alterar dados do usuário [/users/{userid}]
+  
+### Altera Usuário [PUT]
+
+Método utilizado para atualizar um usuário existente. Todos os parâmetros podem ser enviados, tal qual o método POST.
+
++ Parameters
+
+   + userid (string, required) - id ou código do usuário no sistema.
+
++ Response 200 (application/json)
+
+## Deletar usuário [/users/{userid}]
+  
+### Deleta Usuário [DELETE]
+
+Método utilizado para bloquear um usuário existente. O usuário é bloqueado, e todos os itens amarrados ao seu registro (grupos, vínculo funcional, etc) são desassociados.
+
++ Parameters
+
+   + userid (string, required) - id ou código do usuário no sistema.
+
++ Response 204 (application/json)
+   
+
+## Data Structures
+
+### Meta 
++ created: `AAAA-MM-DD_HH:MM:SS` (string) - Data de criação do usuário. Retorna no formato AAAA-MM-DD_HH:MM:SS.
++ lastModified: `AAAA-MM-DD_HH:MM:SS` (string) - Data da última alteração do usuário. Retorna no formato AAAA-MM-DD_HH:MM:SS.
+
+### Name
++ formatted:  User1 (string) 
++ givenName:  User1 (string) - Primeiro nome do usuário.
++ familyName: . (string) - Segundo nome do usuário.
+
+### EmailPost
++ value: XUsr02@empresa.com.br (string) - E-mail do usuário.
++ primary: true (boolean) - Indica se é um email primário.
+
+### EmailGet
++ value: teste@empresa.com.br (string) - E-mail no sistema.
++ type: work (string) - Tipo do e-mail. Sempre retorna "work". 
++ primary: true (boolean) - Indica se é o e-mail primário do usuário. Sempre retorna true.
+
+### Group
++ value: 000001 (string) - Código do grupo.
++ display: grupo2 (string) - Descrição do grupo.
+
+### GroupPost
++ value: 000002 (string, required) - Código do grupo.
+
+### Manager
++ manageId: 000000 (string) - Código do superior do usuário.
++ displayName: Administrador (string) - Nome do superior no sistema.
+
+### ManagerPost
++ manageId: 000000 (string) - Código do superior do usuário.
+
+### UserSup
++ manager (array[ManagerPost]) - Array contendo informações do usuário superior.
+
+                
